@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Information Extractor</title>
+    <script src="https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            margin-bottom: 40px;
+        }
+
+        .upload-zone {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .upload-zone:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+            transform: translateY(-2px);
+        }
+
+        .upload-zone.dragover {
+            border-color: #28a745;
+            background: #e8f5e8;
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .image-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .image-item {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .image-item:hover {
+            transform: scale(1.05);
+        }
+
+        .image-item img {
+            width: 200px;
+            height: 150px;
+            object-fit: cover;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .progress-section {
+            margin: 30px 0;
+            display: none;
+        }
+
+        .progress-bar {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            height: 100%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .results-section {
+            margin-top: 40px;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .results-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+        }
+
+        .results-table tr:hover {
+            background: #f8f9ff;
+        }
+
+        .status {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status.processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .image-item img {
+                width: 150px;
+                height: 120px;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🖼️ Image Information Extractor</h1>
+            <p>Upload images to extract addresses and codes automatically</p>
+        </div>
+
+        <div class="main-content">
+            <div class="upload-section">
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">
+                        <strong>Drag & Drop Images Here</strong><br>
+                        or click to browse files
+                    </div>
+                    <input type="file" id="fileInput" class="file-input" multiple accept="image/*,.pdf">
+                </div>
+                
+                <div class="controls">
+                    <button class="btn" id="loadBtn">📂 Load Images</button>
+                    <button class="btn btn-secondary" id="processBtn" disabled>⚡ Process Images</button>
+                    <button class="btn" id="clearBtn">🗑️ Clear All</button>
+                </div>
+            </div>
+
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-number" id="imageCount">0</div>
+                    <div class="stat-label">Images Loaded</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="processedCount">0</div>
+                    <div class="stat-label">Processed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="extractedCount">0</div>
+                    <div class="stat-label">Data Extracted</div>
+                </div>
+            </div>
+
+            <div class="image-preview" id="imagePreview"></div>
+
+            <div class="progress-section" id="progressSection">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">Processing...</div>
+            </div>
+
+            <div class="results-section">
+                <h2>📋 Extracted Information</h2>
+                <table class="results-table" id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>Image</th>
+                            <th>Address</th>
+                            <th>Code</th>
+                            <th>Status</th>
+                            <th>Processing Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ImageExtractor {
+            constructor() {
+                this.images = [];
+                this.results = [];
+                this.isProcessing = false;
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.updateStats();
+            }
+
+            bindEvents() {
+                const uploadZone = document.getElementById('uploadZone');
+                const fileInput = document.getElementById('fileInput');
+                const loadBtn = document.getElementById('loadBtn');
+                const processBtn = document.getElementById('processBtn');
+                const clearBtn = document.getElementById('clearBtn');
+
+                // Drag and drop events
+                uploadZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadZone.classList.add('dragover');
+                });
+
+                uploadZone.addEventListener('dragleave', () => {
+                    uploadZone.classList.remove('dragover');
+                });
+
+                uploadZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadZone.classList.remove('dragover');
+                    this.handleFiles(e.dataTransfer.files);
+                });
+
+                // Click to upload
+                uploadZone.addEventListener('click', () => {
+                    fileInput.click();
+                });
+
+                loadBtn.addEventListener('click', () => {
+                    fileInput.click();
+                });
+
+                fileInput.addEventListener('change', (e) => {
+                    this.handleFiles(e.target.files);
+                });
+
+                processBtn.addEventListener('click', () => {
+                    this.processImages();
+                });
+
+                clearBtn.addEventListener('click', () => {
+                    this.clearAll();
+                });
+            }
+
+            handleFiles(files) {
+                const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/tiff', 'application/pdf'];
+                
+                Array.from(files).forEach(file => {
+                    if (validTypes.includes(file.type)) {
+                        this.addImage(file);
+                    } else {
+                        alert(`Unsupported file type: ${file.name}`);
+                    }
+                });
+            }
+
+            addImage(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imageData = {
+                        file: file,
+                        name: file.name,
+                        url: e.target.result,
+                        processed: false
+                    };
+                    
+                    this.images.push(imageData);
+                    this.renderImagePreview();
+                    this.updateStats();
+                    this.updateButtons();
+                };
+                reader.readAsDataURL(file);
+            }
+
+            renderImagePreview() {
+                const preview = document.getElementById('imagePreview');
+                preview.innerHTML = '';
+
+                this.images.forEach((image, index) => {
+                    const imageItem = document.createElement('div');
+                    imageItem.className = 'image-item';
+                    imageItem.innerHTML = `
+                        <img src="${image.url}" alt="${image.name}">
+                        <button class="remove-btn" onclick="extractor.removeImage(${index})">×</button>
+                    `;
+                    preview.appendChild(imageItem);
+                });
+            }
+
+            removeImage(index) {
+                this.images.splice(index, 1);
+                this.renderImagePreview();
+                this.updateStats();
+                this.updateButtons();
+            }
+
+            updateButtons() {
+                const processBtn = document.getElementById('processBtn');
+                processBtn.disabled = this.images.length === 0 || this.isProcessing;
+            }
+
+            updateStats() {
+                document.getElementById('imageCount').textContent = this.images.length;
+                document.getElementById('processedCount').textContent = this.images.filter(img => img.processed).length;
+                document.getElementById('extractedCount').textContent = this.results.length;
+            }
+
+            async processImages() {
+                if (this.isProcessing) return;
+
+                this.isProcessing = true;
+                this.updateButtons();
+                
+                const progressSection = document.getElementById('progressSection');
+                const progressFill = document.getElementById('progressFill');
+                const progressText = document.getElementById('progressText');
+                
+                progressSection.style.display = 'block';
+                
+                const total = this.images.length;
+                let processed = 0;
+
+                for (let i = 0; i < this.images.length; i++) {
+                    const image = this.images[i];
+                    if (image.processed) continue;
+
+                    const startTime = Date.now();
+                    
+                    try {
+                        progressText.textContent = `Processing ${image.name}... (${processed + 1}/${total})`;
+                        
+                        const text = await this.extractTextFromImage(image.url);
+                        const extractedData = this.extractInformation(text);
+                        
+                        const processingTime = ((Date.now() - startTime) / 1000).toFixed(2);
+                        
+                        this.results.push({
+                            imageName: image.name,
+                            address: extractedData.address,
+                            code: extractedData.code,
+                            status: extractedData.address || extractedData.code ? 'success' : 'error',
+                            processingTime: processingTime + 's'
+                        });
+
+                        image.processed = true;
+                        processed++;
+                        
+                        const progress = (processed / total) * 100;
+                        progressFill.style.width = `${progress}%`;
+                        
+                        this.renderResults();
+                        this.updateStats();
+                        
+                    } catch (error) {
+                        console.error('Error processing image:', error);
+                        this.results.push({
+                            imageName: image.name,
+                            address: 'Error',
+                            code: 'Error',
+                            status: 'error',
+                            processingTime: 'N/A'
+                        });
+                        processed++;
+                    }
+                }
+
+                progressSection.style.display = 'none';
+                this.isProcessing = false;
+                this.updateButtons();
+                this.updateStats();
+            }
+
+            async extractTextFromImage(imageSrc) {
+                try {
+                    const result = await Tesseract.recognize(imageSrc, 'eng', {
+                        logger: m => console.log(m)
+                    });
+                    return result.data.text;
+                } catch (error) {
+                    console.error('OCR Error:', error);
+                    throw error;
+                }
+            }
+
+            extractInformation(text) {
+                const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+                
+                let address = '';
+                let code = '';
+
+                // Address patterns - look for lines that contain address-like information
+                const addressPatterns = [
+                    /\b\d+\s+[A-Za-z\s]+(?:street|st|avenue|ave|road|rd|drive|dr|lane|ln|boulevard|blvd|way|place|pl|court|ct)\b/i,
+                    /\b[A-Za-z\s]+,\s*[A-Za-z\s]+\s+\d{5}/i, // City, State ZIP
+                    /\b[A-Za-z\s]+\s+\d{5}(?:-\d{4})?\b/i, // City ZIP
+                    /\b\d+\s+[A-Za-z\s]+,\s*[A-Za-z\s]+/i, // Number Street, City
+                ];
+
+                // Code patterns - look for numbers with more than 6 digits
+                const codePatterns = [
+                    /\b\d{7,}\b/g, // 7 or more digits
+                    /\b\d{6,}\b/g  // 6 or more digits as backup
+                ];
+
+                // Extract address
+                for (const line of lines) {
+                    for (const pattern of addressPatterns) {
+                        const match = line.match(pattern);
+                        if (match && !address) {
+                            address = match[0].trim();
+                            break;
+                        }
+                    }
+                    if (address) break;
+                }
+
+                // If no structured address found, look for any line with address-like keywords
+                if (!address) {
+                    const addressKeywords = ['street', 'avenue', 'road', 'drive', 'lane', 'boulevard', 'way', 'place', 'court'];
+                    for (const line of lines) {
+                        if (addressKeywords.some(keyword => line.toLowerCase().includes(keyword))) {
+                            address = line;
+                            break;
+                        }
+                    }
+                }
+
+                // Extract code
+                for (const line of lines) {
+                    for (const pattern of codePatterns) {
+                        const matches = line.match(pattern);
+                        if (matches) {
+                            // Find the longest number (most likely to be the code we want)
+                            const longestMatch = matches.reduce((longest, current) => 
+                                current.length > longest.length ? current : longest
+                            );
+                            if (longestMatch.length > 6) {
+                                code = longestMatch;
+                                break;
+                            }
+                        }
+                    }
+                    if (code) break;
+                }
+
+                return { address, code };
+            }
+
+            renderResults() {
+                const tbody = document.getElementById('resultsBody');
+                tbody.innerHTML = '';
+
+                this.results.forEach((result, index) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${result.imageName}</td>
+                        <td>${result.address || 'Not found'}</td>
+                        <td>${result.code || 'Not found'}</td>
+                        <td><span class="status ${result.status}">${result.status}</span></td>
+                        <td>${result.processingTime}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+
+            clearAll() {
+                this.images = [];
+                this.results = [];
+                this.renderImagePreview();
+                this.renderResults();
+                this.updateStats();
+                this.updateButtons();
+                document.getElementById('fileInput').value = '';
+            }
+        }
+
+        // Initialize the application
+        const extractor = new ImageExtractor();
+    </script>
+</body>
+</html>
